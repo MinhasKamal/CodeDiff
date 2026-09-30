@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Real-Time Code Comparer</title>
+
+<!-- Highlight.js Themes & Library -->
+<link id="hljs-theme" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/vs2015.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+
+<style>
+    /* --- Theme Variables --- */
+    :root {
+        --bg-color: #1e1e1e;
+        --text-color: #d4d4d4;
+        --header-bg: #2d2d2d;
+        --border-color: #444;
+        --ln-bg: #252526;
+        --ln-color: #858585;
+        --removed-bg: rgba(255, 0, 0, 0.3);
+        --added-bg: rgba(0, 255, 0, 0.25);
+        --gap-bg: rgba(60, 60, 60, 0.2);
+        --btn-bg: #3B3B3B;
+        --btn-hover: #4A4A4A;
+        --stat-add: #4CAF50;
+        --stat-rem: #F44336;
+    }
+
+    body.light-theme {
+        --bg-color: #ffffff;
+        --text-color: #333333;
+        --header-bg: #f3f3f3;
+        --border-color: #ccc;
+        --ln-bg: #f9f9f9;
+        --ln-color: #999;
+        --removed-bg: rgba(255, 0, 0, 0.15);
+        --added-bg: rgba(0, 255, 0, 0.15);
+        --gap-bg: rgba(0, 0, 0, 0.05);
+        --btn-bg: #3B3B3B;
+        --btn-hover: #4A4A4A;
+        --stat-add: #2e7d32;
+        --stat-rem: #c62828;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+        margin: 0;
+        padding: 0;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background-color: var(--bg-color);
+        color: var(--text-color);
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        transition: background-color 0.3s, color 0.3s;
+    }
+    
+    header {
+        padding: 10px 20px;
+        background-color: var(--header-bg);
+        border-bottom: 1px solid var(--border-color);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        transition: background-color 0.3s, border-color 0.3s;
+    }
+    
+    .title-area {
+        display: flex;
+        align-items: baseline;
+        gap: 20px;
+    }
+    .title { font-size: 1.2rem; font-weight: bold; }
+    .stats { font-size: 0.95rem; font-weight: 600; }
+    .stat-add { color: var(--stat-add); margin-right: 10px; }
+    .stat-rem { color: var(--stat-rem); }
+    
+    .header-controls {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+    }
+
+    button {
+        background-color: var(--btn-bg);
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: bold;
+        transition: background 0.2s;
+    }
+    button:hover { background-color: var(--btn-hover); }
+    
+    .container {
+        display: flex;
+        flex: 1;
+        overflow: hidden;
+    }
+    .panel {
+        width: 50%;
+        display: flex;
+        flex-direction: row;
+        border-right: 1px solid var(--border-color);
+        position: relative;
+        overflow: hidden;
+    }
+    .panel:last-child { border-right: none; }
+    
+    .line-numbers {
+        width: 45px;
+        min-width: 45px;
+        background-color: var(--ln-bg);
+        color: var(--ln-color);
+        text-align: right;
+        padding: 10px 10px 10px 0;
+        font-family: 'Courier New', Courier, monospace;
+        font-size: 14px;
+        line-height: 20px;
+        overflow: hidden;
+        user-select: none;
+        border-right: 1px solid var(--border-color);
+        transition: background-color 0.3s, color 0.3s;
+    }
+    
+    .editor-wrapper {
+        position: relative;
+        flex: 1;
+        overflow: hidden;
+        background-color: var(--bg-color);
+    }
+    
+    .highlights, textarea {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        padding: 10px;
+        font-family: 'Courier New', Courier, monospace;
+        font-size: 14px;
+        line-height: 20px;
+        white-space: pre;
+        overflow: auto;
+        border: none;
+        outline: none;
+        margin: 0;
+    }
+    
+    .highlights.hljs {
+        z-index: 1;
+        pointer-events: none; 
+        background: transparent !important; 
+    }
+    
+    textarea {
+        z-index: 2;
+        background: transparent !important;
+        color: transparent !important; 
+        caret-color: var(--text-color);
+        resize: none;
+    }
+
+    /* Diff structural classes */
+    .removed { background-color: var(--removed-bg); }
+    .added { background-color: var(--added-bg); }
+    .gap { background-color: var(--gap-bg); }
+    
+    /* 
+      By setting width: 100% and pairing it with the dynamic inner wrapper in the JS, 
+      the backgrounds will stretch to cover the entire scrollable area. 
+    */
+    .mark { display: block; width: 100%; height: 20px; line-height: 20px; }
+    .ln-mark { display: block; height: 20px; line-height: 20px; }
+
+    /* =========================================
+       SYNCED MODE OVERRIDES 
+       ========================================= */
+    body.synced-mode .container {
+        overflow-y: auto;
+        overflow-x: hidden;
+        align-items: flex-start;
+    }
+    body.synced-mode .panel {
+        height: auto;
+        min-height: 100%;
+        overflow: hidden;
+    }
+    body.synced-mode .editor-wrapper {
+        position: relative;
+        height: auto;
+        overflow-x: auto; 
+        overflow-y: hidden;
+    }
+    body.synced-mode .highlights.hljs {
+        position: relative; 
+        height: auto;
+        overflow: visible;
+        pointer-events: auto; 
+    }
+    body.synced-mode .line-numbers {
+        position: relative;
+        height: auto;
+        overflow: visible;
+    }
+    body.synced-mode textarea {
+        display: none; 
+    }
+    .mode-indicator {
+        display: none;
+        font-size: 0.9rem;
+        color: #ff9900;
+        margin-right: 15px;
+        font-weight: bold;
+    }
+    body.synced-mode .mode-indicator { display: inline; }
+    textarea::placeholder {
+    	color: #888 !important; /* Forces the placeholder to be visible */
+      font-style: italic;
+	}
+</style>
+</head>
+<body>
+
+<header>
+    <div class="title-area">
+        <div class="title">Code Diff</div>
+        <div class="stats" id="diff-stats">
+            <span class="stat-add">+0 Additions</span>
+            <span class="stat-rem">-0 Deletions</span>
+        </div>
+    </div>
+    <div class="header-controls">
+        <span class="mode-indicator">Synced View (Read-Only)</span>
+        <button id="toggle-mode" title="Toggle Synced Scrolling">Unsynced</button>
+        <button id="toggle-theme" title="Toggle Theme">🌙</button>
+    </div>
+</header>
+
+<div class="container" id="main-container">
+    <div class="panel">
+        <div class="line-numbers" id="line-numbers-left"></div>
+        <div class="editor-wrapper">
+            <div class="highlights hljs" id="highlights-left"></div>
+            <textarea id="input-left" spellcheck="false" placeholder="Original text here"></textarea>
+        </div>
+    </div>
+    <div class="panel">
+        <div class="line-numbers" id="line-numbers-right"></div>
+        <div class="editor-wrapper">
+            <div class="highlights hljs" id="highlights-right"></div>
+            <textarea id="input-right" spellcheck="false" placeholder="Modified text here"></textarea>
+        </div>
+    </div>
+</div>
+
+<script>
+    const inputLeft = document.getElementById('input-left');
+    const inputRight = document.getElementById('input-right');
+    const highlightsLeft = document.getElementById('highlights-left');
+    const highlightsRight = document.getElementById('highlights-right');
+    const linesLeft = document.getElementById('line-numbers-left');
+    const linesRight = document.getElementById('line-numbers-right');
+    const statsContainer = document.getElementById('diff-stats');
+    
+    const toggleModeBtn = document.getElementById('toggle-mode');
+    const toggleThemeBtn = document.getElementById('toggle-theme');
+    const hljsTheme = document.getElementById('hljs-theme');
+
+    let isSyncedMode = false;
+    let isLightTheme = false;
+
+    // --- Tab Support Logic ---
+    function handleTab(e) {
+        if (e.key === 'Tab') {
+            e.preventDefault();
+            const start = this.selectionStart;
+            const end = this.selectionEnd;
+            this.value = this.value.substring(0, start) + "    " + this.value.substring(end);
+            this.selectionStart = this.selectionEnd = start + 4;
+            processDiff();
+        }
+    }
+    inputLeft.addEventListener('keydown', handleTab);
+    inputRight.addEventListener('keydown', handleTab);
+
+    // --- Theme Toggle Logic ---
+    toggleThemeBtn.addEventListener('click', () => {
+        isLightTheme = !isLightTheme;
+        document.body.classList.toggle('light-theme', isLightTheme);
+        toggleThemeBtn.textContent = isLightTheme ? '☀️' : '🌙';
+        hljsTheme.href = isLightTheme 
+            ? 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/vs.min.css' 
+            : 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/vs2015.min.css';
+    });
+
+    // --- Mode Toggle Logic ---
+    toggleModeBtn.addEventListener('click', () => {
+        isSyncedMode = !isSyncedMode;
+        document.body.classList.toggle('synced-mode', isSyncedMode);
+        toggleModeBtn.textContent = isSyncedMode ? 'Synced' : 'Unsynced';
+        processDiff(); 
+    });
+
+    // --- Sync scrolling for Individual Mode ---
+    function syncScroll(source, target, lineNums) {
+        if (isSyncedMode) return;
+        target.scrollTop = source.scrollTop;
+        target.scrollLeft = source.scrollLeft;
+        lineNums.scrollTop = source.scrollTop;
+    }
+    inputLeft.addEventListener('scroll', () => syncScroll(inputLeft, highlightsLeft, linesLeft));
+    inputRight.addEventListener('scroll', () => syncScroll(inputRight, highlightsRight, linesRight));
+
+    function escapeHtml(text) {
+        return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;") || ' ';
+    }
+
+    function highlightLine(line, lang) {
+        if (!line) return ' '; 
+        if (!lang || lang === 'plaintext') return escapeHtml(line);
+        try {
+            return hljs.highlight(line, { language: lang, ignoreIllegals: true }).value || ' ';
+        } catch (e) {
+            return escapeHtml(line);
+        }
+    }
+
+    function getLcsTable(oldLines, newLines) {
+        const dp = Array(oldLines.length + 1).fill(null).map(() => Array(newLines.length + 1).fill(0));
+        for (let i = 1; i <= oldLines.length; i++) {
+            for (let j = 1; j <= newLines.length; j++) {
+                if (oldLines[i - 1] === newLines[j - 1]) {
+                    dp[i][j] = dp[i - 1][j - 1] + 1;
+                } else {
+                    dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
+                }
+            }
+        }
+        return dp;
+    }
+
+    function buildIndividualDiff(oldLines, newLines, dp) {
+        let i = oldLines.length, j = newLines.length;
+        const diffOld = Array(oldLines.length).fill('removed');
+        const diffNew = Array(newLines.length).fill('added');
+
+        while (i > 0 && j > 0) {
+            if (oldLines[i - 1] === newLines[j - 1]) {
+                diffOld[i - 1] = 'unchanged';
+                diffNew[j - 1] = 'unchanged';
+                i--; j--;
+            } else if (dp[i - 1][j] > dp[i][j - 1]) { i--; } 
+            else { j--; }
+        }
+        return { diffOld, diffNew };
+    }
+
+    function buildAlignedDiff(oldLines, newLines, dp) {
+        let i = oldLines.length, j = newLines.length;
+        const alignedOld = [], alignedNew = [];
+        const typeOld = [], typeNew = [];
+        const numOld = [], numNew = [];
+        let currOld = oldLines.length, currNew = newLines.length;
+
+        while (i > 0 || j > 0) {
+            if (i > 0 && j > 0 && oldLines[i - 1] === newLines[j - 1]) {
+                alignedOld.unshift(oldLines[i - 1]); alignedNew.unshift(newLines[j - 1]);
+                typeOld.unshift('unchanged'); typeNew.unshift('unchanged');
+                numOld.unshift(currOld--); numNew.unshift(currNew--);
+                i--; j--;
+            } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
+                alignedOld.unshift(''); alignedNew.unshift(newLines[j - 1]);
+                typeOld.unshift('gap'); typeNew.unshift('added');
+                numOld.unshift(''); numNew.unshift(currNew--);
+                j--;
+            } else if (i > 0 && (j === 0 || dp[i][j - 1] < dp[i - 1][j])) {
+                alignedOld.unshift(oldLines[i - 1]); alignedNew.unshift('');
+                typeOld.unshift('removed'); typeNew.unshift('gap');
+                numOld.unshift(currOld--); numNew.unshift('');
+                i--;
+            }
+        }
+        return { alignedOld, alignedNew, typeOld, typeNew, numOld, numNew };
+    }
+
+    // --- Core Diff Processor ---
+    function processDiff() {
+        const leftText = inputLeft.value;
+        const rightText = inputRight.value;
+        
+        let langLeft = 'plaintext', langRight = 'plaintext';
+        try { if (leftText.trim()) langLeft = hljs.highlightAuto(leftText).language || 'plaintext'; } catch(e){}
+        try { if (rightText.trim()) langRight = hljs.highlightAuto(rightText).language || 'plaintext'; } catch(e){}
+
+        const oldLines = leftText.split('\n');
+        const newLines = rightText.split('\n');
+        
+        const dp = getLcsTable(oldLines, newLines);
+        let leftHTML = '', rightHTML = '', leftLinesHTML = '', rightLinesHTML = '';
+        let additions = 0, deletions = 0;
+
+        if (isSyncedMode) {
+            const { alignedOld, alignedNew, typeOld, typeNew, numOld, numNew } = buildAlignedDiff(oldLines, newLines, dp);
+            
+            alignedOld.forEach((line, idx) => {
+                const highlighted = highlightLine(line, langLeft);
+                leftHTML += `<span class="mark ${typeOld[idx]}">${highlighted}</span>`;
+                leftLinesHTML += `<span class="ln-mark">${numOld[idx]}</span>`;
+                if (typeOld[idx] === 'removed') deletions++;
+            });
+            alignedNew.forEach((line, idx) => {
+                const highlighted = highlightLine(line, langRight);
+                rightHTML += `<span class="mark ${typeNew[idx]}">${highlighted}</span>`;
+                rightLinesHTML += `<span class="ln-mark">${numNew[idx]}</span>`;
+                if (typeNew[idx] === 'added') additions++;
+            });
+        } else {
+            const { diffOld, diffNew } = buildIndividualDiff(oldLines, newLines, dp);
+            
+            oldLines.forEach((line, idx) => {
+                const highlighted = highlightLine(line, langLeft);
+                leftHTML += `<span class="mark ${diffOld[idx]}">${highlighted}</span>`;
+                leftLinesHTML += `<span class="ln-mark">${idx + 1}</span>`;
+                if (diffOld[idx] === 'removed') deletions++;
+            });
+            newLines.forEach((line, idx) => {
+                const highlighted = highlightLine(line, langRight);
+                rightHTML += `<span class="mark ${diffNew[idx]}">${highlighted}</span>`;
+                rightLinesHTML += `<span class="ln-mark">${idx + 1}</span>`;
+                if (diffNew[idx] === 'added') additions++;
+            });
+        }
+
+        // Inner wrapper to force `.mark` backgrounds to stretch the full horizontal scroll width
+        highlightsLeft.innerHTML = `<div style="width: max-content; min-width: 100%;">${leftHTML}</div>`;
+        highlightsRight.innerHTML = `<div style="width: max-content; min-width: 100%;">${rightHTML}</div>`;
+        linesLeft.innerHTML = leftLinesHTML;
+        linesRight.innerHTML = rightLinesHTML;
+        
+        statsContainer.innerHTML = `<span class="stat-add">+${additions} Additions</span> <span class="stat-rem">-${deletions} Deletions</span>`;
+    }
+
+    // Reverted back to instant processing (no debouncing delay)
+    inputLeft.addEventListener('input', processDiff);
+    inputRight.addEventListener('input', processDiff);
+    
+    // Initial render
+    processDiff();
+</script>
+</body>
+</html>
