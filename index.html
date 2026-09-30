@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Real-Time Code Comparer</title>
+<title>Code Diff</title>
 
 <!-- Highlight.js Themes & Library -->
 <link id="hljs-theme" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/vs2015.min.css">
@@ -57,7 +57,7 @@
     }
     
     header {
-        padding: 10px 20px;
+        padding: 5px 10px;
         background-color: var(--header-bg);
         border-bottom: 1px solid var(--border-color);
         display: flex;
@@ -71,7 +71,7 @@
         align-items: baseline;
         gap: 20px;
     }
-    .title { font-size: 1.2rem; font-weight: bold; }
+    .title { font-size: 0.95rem; font-weight: bold; }
     .stats { font-size: 0.95rem; font-weight: 600; }
     .stat-add { color: var(--stat-add); margin-right: 10px; }
     .stat-rem { color: var(--stat-rem); }
@@ -226,14 +226,14 @@
 
 <header>
     <div class="title-area">
-        <div class="title">Code Diff</div>
+        <div class="title">Modifications:</div>
         <div class="stats" id="diff-stats">
             <span class="stat-add">+0 Additions</span>
             <span class="stat-rem">-0 Deletions</span>
         </div>
     </div>
     <div class="header-controls">
-        <span class="mode-indicator">Synced View (Read-Only)</span>
+        <span class="mode-indicator">Read-Only</span>
         <button id="toggle-mode" title="Toggle Synced Scrolling">Unsynced</button>
         <button id="toggle-theme" title="Toggle Theme">🌙</button>
     </div>
