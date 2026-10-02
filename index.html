@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Code Diff</title>
+<title>CodeDiff</title>
 
 <!-- Highlight.js Themes & Library -->
 <link id="hljs-theme" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/vs2015.min.css">
@@ -217,16 +217,17 @@
     }
     body.synced-mode .mode-indicator { display: inline; }
     textarea::placeholder {
-    	color: #888 !important; /* Forces the placeholder to be visible */
-      font-style: italic;
+        color: #888 !important; /* Forces the placeholder to be visible */
+        font-style: italic;
 	}
+    a { color: inherit; text-decoration: inherit; }
 </style>
 </head>
 <body>
 
 <header>
     <div class="title-area">
-        <div class="title">Modifications:</div>
+        <div class="title" title="by Minhas Kamal"><a href="https://github.com/MinhasKamal/CodeDiff" target="_blank">CodeDiff:</a></div>
         <div class="stats" id="diff-stats">
             <span class="stat-add">+0 Additions</span>
             <span class="stat-rem">-0 Deletions</span>
